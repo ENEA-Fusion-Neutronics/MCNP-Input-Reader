@@ -5,7 +5,7 @@ description = ""
 authors = ["gmariano <giovanni.mariano@enea.it>"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "*"
 joblib = "^1.0.0"
 
 [tool.poetry.dev-dependencies]

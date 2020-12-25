@@ -1,15 +1,15 @@
-import re
+# import re
 from dataclasses import dataclass, field
 from typing import Dict, List
 from joblib import Parallel, delayed
 
 
-CELL_PARAMETERS=['IMP', 'VOL', 'PWT', 'EXT',
-                 'FCL', 'WWN', 'DXC', 'NONU', 
-                 'PD', 'TMP', 'U', 'TRCL', 
-                 'LAT', 'FILL', 'ELPT', 'COSY', 'BFLCL', 'UNC']
+CELL_PARAMETERS = ['IMP', 'VOL', 'PWT', 'EXT',
+                    'FCL', 'WWN', 'DXC', 'NONU',
+                    'PD', 'TMP', 'U', 'TRCL',
+                    'LAT', 'FILL', 'ELPT', 'COSY', 'BFLCL', 'UNC']
 
-#pattern_cell = re.compile(r'''
+# pattern_cell = re.compile(r'''
 #                     (?P<cell_id>^\d+)                 #CELL ID
 #                     (\s+)?(\n)?(\s+)?   
 #                     (?P<mat_id>\d+)                   #MATERIAL ID
@@ -19,16 +19,17 @@ CELL_PARAMETERS=['IMP', 'VOL', 'PWT', 'EXT',
 #                     (?P<therest>.*?$)
 #                    ''', re.VERBOSE|re.IGNORECASE)
 #
-#pattern_cell_2= re.compile(r'([A-Z]+:?\w?.*?(?=[A-Z]|$))', re.IGNORECASE)
+# pattern_cell_2= re.compile(r'([A-Z]+:?\w?.*?(?=[A-Z]|$))', re.IGNORECASE)
+
 
 @dataclass
 class MCNPCell:
     cell_id: int = 0
-    mat_id: int = 0 
+    mat_id: int = 0
     density: float = 0.0
     geometry: str = ''
     fill_id: int = 0
-    fill_type: str =''
+    fill_type: str = ''
     universe_id: int = 0
     imp_p: float = 0.0
     imp_n: float = 0.0
@@ -36,29 +37,29 @@ class MCNPCell:
     transf_id: int = 0
     start_line: int = 0
     end_line: int = 0
-    comment: str =''
-    input_cell_description:str = ''
+    comment: str = ''
+    input_cell_description: str = ''
     surfaces: List[int] = field(init=False)
     not_cells: List[int] = field(init=False)
-    lines: List[str] = field(init=False, repr=False, compare=False)    
+    lines: List[str] = field(init=False, repr=False, compare=False)
 
-    def from_string(self, cell_desc: str, start_line: int=0):
-        cell_desc_split=cell_desc.splitlines()
-        cell_pure=' '.join([l.split('$')[0].strip() for l in cell_desc_split if l[0].lower()!='c']).replace('(',' (').replace(')',') ')
+    def from_string(self, cell_desc: str, start_line: int = 0):
+        cell_desc_split = cell_desc.splitlines()
+        cell_pure = ' '.join([line.split('$')[0].strip() for line in cell_desc_split if line[0].lower() != 'c']).replace('(', ' (').replace(')', ') ')
         self.generate_cell_parameters_from_string(cell_pure)
-        self.start_line=start_line
-        comment_lines=[]
+        self.start_line = start_line
+        comment_lines = []
         for l in reversed(cell_desc_split):
-            if l[0].lower()=='c' or l.strip()[0]=='$':
+            if l[0].lower() == 'c' or l.strip()[0] == '$':
                 comment_lines.append(l.strip())
             else:
                 break
-        comment_list=[l[1:] for l in comment_lines if l[0]=='$']
+        comment_list = [l[1:] for l in comment_lines if l[0] == '$']
         if len(comment_list)==0:
             for l in reversed(comment_lines):
                 comment_list.append(l[1:])
                 if len(l.split())>1:
-                    break 
+                    break
         comment=' '.join(comment_list).strip()
         if comment.lower().replace('c','').replace('-','').strip():
             self.comment=comment 
@@ -99,15 +100,15 @@ class MCNPCell:
             self.density = float(cell_pure_split[2])
         
         for x in CELL_PARAMETERS:
-            the_rest=the_rest.replace(x,f'\n{x} ') 
+            the_rest=the_rest.replace(x,f'\n{x} ')
         
         the_rest=the_rest.replace('*\nFILL','\n*FILL').splitlines()
         #the_rest=re.split(pattern_cell_2,the_rest)
         #the_rest=[s.strip() for s in the_rest if s]
         self.geometry=' '.join(the_rest[0].split())#.replace(' (','(').replace(') ',')')
-        geom = self.geometry.replace('(',' ').replace(')',' ').replace(':',' ').replace('-',' ').replace('+',' ').split()
-        self.surfaces=set([int(s) for s in geom if s[0]!='#'])
-        self.not_cells=set([int(s[1:]) for s in geom if (s[0]=='#') and (len(s)>1)])
+        geom = self.geometry.replace('(', ' ').replace(')', ' ').replace(':', ' ').replace('-', ' ').replace('+', ' ').split()
+        self.surfaces=set([int(s) for s in geom if s[0] != '#'])
+        self.not_cells=set([int(s[1:]) for s in geom if (s[0] == '#') and (len(s) > 1)])
         parameters={}
         for p in the_rest[1:]:
             k_v = p.replace('=',' ').split()
@@ -132,11 +133,11 @@ class MCNPCell:
             self.transf = transf if len_transf > 1 else ''
         self.universe_id = int(parameters.get('U',[0])[0])
  
-def generate_one_cell(cell_des): 
-    cell=MCNPCell()
-    line_des=cell_des['text_line']
-    cell_id=cell_des['cell_id']
-    line_num=cell_des['start_line']
+def generate_one_cell(cell_des):
+    cell = MCNPCell()
+    line_des = cell_des['text_line']
+    # cell_id = cell_des['cell_id']
+    line_num = cell_des['start_line']
     cell.from_string(line_des, line_num)
     return cell
        
@@ -147,17 +148,17 @@ class MCNPCells:
     cells: Dict[int, MCNPCell] = field(init=False)
     cells_line: Dict[int, Dict] = field(init=False, repr=False)
     
-    def add_cell(self, cell:MCNPCell):
+    def add_cell(self, cell: MCNPCell):
         if self.cells.get(cell.cell_id, False):
-           raise Exception('Vaffanculo, the cell_id {} has been already used'.format(cell_id))
+           raise Exception('Vaffanculo, the cell_id {} has been already used'.format(cell.cell_id))
         else:
             self.cells[cell.cell_id] = cell    
 
-    def add_cell_line(self, cell_id:int , line_number:int = 0, line:str = ''):
+    def add_cell_line(self, cell_id: int, line_number: int = 0, line: str = ''):
         if cell_id in self.cells_line.keys():
            raise Exception('Vaffanculo, the cell_id {} has been already used'.format(cell_id))
         else:
-            self.cells_line[cell_id] = {'cell_id':cell_id, 'start_line':line_number, 'text_line':line} 
+            self.cells_line[cell_id] = {'cell_id': cell_id, 'start_line': line_number, 'text_line': line}
     
     def generate_one_cell(self, cell_des): 
         cell=MCNPCell()
@@ -230,9 +231,3 @@ class MCNPCells:
 
     def get_transformations(self):
         return set([cell.transf_id for cell in self.cells.values() if cell.transf_id!=0])
-
-
-
-if __name__=='__main__':
-
-    
