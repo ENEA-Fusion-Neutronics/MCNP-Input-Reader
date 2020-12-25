@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "mcnp_input_reader"
+version = "0.1.0"
+description = ""
+authors = ["gmariano <giovanni.mariano@enea.it>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+joblib = "^1.0.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+jupyter = "^1.0.0"
+memory-profiler = "^0.58.0"
+snakeviz = "^2.1.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
