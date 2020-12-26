@@ -1,4 +1,4 @@
-# import re
+from .exceptions import CellNotFound, CellIdAlreadyUsed
 from dataclasses import dataclass, field
 from typing import Dict, List
 from joblib import Parallel, delayed
@@ -61,14 +61,14 @@ class MCNPCell:
                 if len(l.split())>1:
                     break
         comment=' '.join(comment_list).strip()
-        if comment.lower().replace('c','').replace('-','').strip():
-            self.comment=comment 
-            len_comment_list=len(comment_list)
+        if comment.lower().replace('c', '').replace('-', '').strip():
+            self.comment = comment 
+            len_comment_list = len(comment_list)
         else:
-            len_comment_list=0
-        len_cell_description=len(cell_desc_split)-len(comment_lines)+len_comment_list
-        self.input_cell_description='\n'.join(cell_desc_split[:len_cell_description])
-        self.end_line=start_line+len_cell_description-1
+            len_comment_list = 0
+        len_cell_description = len(cell_desc_split)-len(comment_lines)+len_comment_list
+        self.input_cell_description = '\n'.join(cell_desc_split[:len_cell_description])
+        self.end_line = start_line+len_cell_description-1
 
     def append_line(self, line:str):
         self.lines.append(line)
@@ -76,10 +76,10 @@ class MCNPCell:
     def __post_init__(self):
         self.lines = []
         if self.geometry:
-            self.geometry=' '.join(self.geometry.split())
-            geom = self.geometry.replace('(',' ').replace(')',' ').replace(':',' ').replace('-',' ').replace('+',' ').split()
-            self.surfaces=set([int(s) for s in geom if s[0]!='#'])
-            self.not_cells=set([int(s[1:]) for s in geom if (s[0]=='#') and (len(s)>1)])
+            self.geometry = ' '.join(self.geometry.split())
+            geom = self.geometry.replace('(', ' ').replace(')', ' ').replace(':', ' ').replace('-', ' ').replace('+', ' ').split()
+            self.surfaces = set([int(s) for s in geom if s[0]!='#'])
+            self.not_cells = set([int(s[1:]) for s in geom if (s[0]=='#') and (len(s)>1)])
 
     
     def generate_cell_from_lines(self):
@@ -150,52 +150,44 @@ class MCNPCells:
     
     def add_cell(self, cell: MCNPCell):
         if self.cells.get(cell.cell_id, False):
-           raise Exception('Vaffanculo, the cell_id {} has been already used'.format(cell.cell_id))
+           raise CellIdAlreadyUsed('Vaffanculo, the cell_id {} has been already used'.format(cell.cell_id))
         else:
             self.cells[cell.cell_id] = cell    
 
     def add_cell_line(self, cell_id: int, line_number: int = 0, line: str = ''):
         if cell_id in self.cells_line.keys():
-           raise Exception('Vaffanculo, the cell_id {} has been already used'.format(cell_id))
+           raise CellIdAlreadyUsed('Vaffanculo, the cell_id {} has been already used'.format(cell_id))
         else:
-            self.cells_line[cell_id] = {'cell_id': cell_id, 'start_line': line_number, 'text_line': line}
-    
-    def generate_one_cell(self, cell_des): 
-        cell=MCNPCell()
-        line_des=cell_des['text_line']
-        cell_id=cell_des['cell_id']
-        line_num=cell_des['start_line']
-        cell.from_string(line_des, line_num)
-        return cell
+            self.cells_line[cell_id] = {'cell_id': cell_id, 'start_line': line_number, 'text_line': line} 
 
-    def generate_cells(self): 
+    def generate_cells(self):
         for cell_des in self.cells_line.values():
-            cell=MCNPCell()
-            line_des=cell_des['text_line']
-            cell_id=cell_des['cell_id']
-            line_num=cell_des['start_line']
+            cell = MCNPCell()
+            line_des = cell_des['text_line']
+            cell_id = cell_des['cell_id']
+            line_num = cell_des['start_line']
             cell.from_string(line_des, line_num)
-            self.cells[cell_id]=cell
+            self.cells[cell_id] = cell
    
     def parallel_generate_cells(self):
-        cells=Parallel(n_jobs=-1)(delayed(generate_one_cell)(cell_des) for cell_des in self.cells_line.values())
-        self.cells={cell.cell_id:cell for cell in cells}
+        cells = Parallel(n_jobs=-1)(delayed(generate_one_cell)(cell_des) for cell_des in self.cells_line.values())
+        self.cells = {cell.cell_id: cell for cell in cells}
 
     def append_line_to_cell(self, cell_id: int, line: str):
         if cell_id in self.cells_line.keys():
-            self.cells_line[cell_id]['text_line']+=line
+            self.cells_line[cell_id]['text_line'] += line
         else:
-            raise Exception('Vaffanculo, cell_id {} does not exist!'.format(cell_id))
+            raise CellNotFound('Vaffanculo, cell_id {} does not exist!'.format(cell_id))
     
     def __post_init__(self):
-        self.cells={}
-        self.cells_line={}
+        self.cells = {}
+        self.cells_line = {}
         
     def __getitem__(self, cell_id:int):
         if cell_id in self.cells.keys():
             return self.cells[cell_id]
         else:
-            raise Exception('Vaffanculo, cell_id {} does not exist!'.format(cell_id))
+            raise CellNotFound('Vaffanculo, cell_id {} does not exist!'.format(cell_id))
     
     def __len__(self):
         return len(self.cells)
@@ -205,14 +197,13 @@ class MCNPCells:
     
     def filter_cells(self, p, all_levels=False):
         filtered_cells= MCNPCells()
-        universe_ids = set()
         for cell in list(filter(p, self.__iter__())):
             filtered_cells.add_cell(cell)
-            if all_levels==True and cell.fill_id!=0:
-                universe_ids.update([cell.fill_id])
+            
         if all_levels==True:
+            universe_ids = filtered_cells.get_fill_ids()
             while len(universe_ids)>0:
-                cells_of_universes=list(filter(lambda cell: cell.universe_id in universe_ids, self.__iter__()))
+                cells_of_universes = list(filter(lambda cell: cell.universe_id in universe_ids, self.__iter__()))
                 universe_ids=set()
                 for cell in cells_of_universes:
                     filtered_cells.add_cell(cell)
@@ -231,3 +222,9 @@ class MCNPCells:
 
     def get_transformations(self):
         return set([cell.transf_id for cell in self.cells.values() if cell.transf_id!=0])
+
+    def get_universe_ids(self):
+        return set([cell.universe_id for cell in self.cells.values() if cell.universe_id!=0])
+
+    def get_fill_ids(self):
+        return set([cell.fill_id for cell in self.cells.values() if cell.fill_id!=0])
