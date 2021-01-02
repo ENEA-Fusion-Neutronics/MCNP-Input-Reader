@@ -15,3 +15,18 @@ class SurfNotFound(Exception):
 
 class SurfIdAlreadyUsed(Exception):
     pass
+
+class MaterialNotFound(Exception):
+    pass
+
+class MaterialIdAlreadyUsed(Exception):
+    pass
+
+class TransformationNotFound(Exception):
+    pass
+
+class TransformationIdAlreadyUsed(Exception):
+    pass
+
+class NotImplementedFeature(Exception):
+    pass

@@ -28,7 +28,7 @@ class Store:
         if card_id in self._store.keys():
             return self._store[card_id]
         else:
-            raise self.cardnotfound_exception('Vaffanculo, {} {} does not exist!'.format(self.card_name, card.id))
+            raise self.cardnotfound_exception('Please, {} {} does not exist!'.format(self.card_name, card_id))
 
     def __len__(self):
         return len(self._store)
@@ -43,13 +43,15 @@ class Store:
 
     def add(self, card):
         if self._store.get(card.id, False):
-           raise self.cardidalreadyused_exception('Vaffanculo, the {} {} has been already used'.format(self.card_name, card.id))
+           raise self.cardidalreadyused_exception('Please, the {} {} has been already used'.format(self.card_name, card.id))
         else:
             self._store[card.id] = card
    
     def filter(self, p):
         return self.__class__(list(filter(p, self.__iter__())))
-        #for card in list(filter(p, self.__iter__())):
-        #    filtered.add(card)
-        #return filtered
 
+    def list_ids(self):
+        return list(self._store.keys())
+
+    def get_start_end_lines(self):
+        return [[card.start_line, card.end_line+1] for card in self._store.values()]

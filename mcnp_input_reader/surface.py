@@ -108,41 +108,41 @@ class MCNPSurfs(Store):
         return set([surf.transf_id for surf in self._store.values() if surf.transf_id!=0])
 
 
-@dataclass
-class MCNPSurfs_old:
-    '''Dictonary container for MCNP cell'''
-
-    surfs: Dict[int, MCNPSurf] = field(init=False)
-    
-    def add_surf(self, surf: MCNPSurf):
-        if self.surfs.get(surf.id, False):
-           raise CellIdAlreadyUsed('Vaffanculo, the surface {} has been already used'.format(surf.id))
-        else:
-            self.surfs[surf.id] = surf    
-
-        
-    def __post_init__(self):
-        self.surfs = {}
-        
-    def __getitem__(self, surf_id:int):
-        if surf_id in self.surfs.keys():
-            return self.surfs[surf_id]
-        else:
-            raise CellNotFound('Vaffanculo, surface {} does not exist!'.format(surf_id))
-    
-    def __len__(self):
-        return len(self.surfs)
-
-    def __iter__(self):
-        return (surf for surf in self.surfs.values())
-    
-    def filter_surfaces(self, p):
-        filtered_surfaces= MCNPSurfs()
-        for surf in list(filter(p, self.__iter__())):
-            filtered_surfs.add_surf(surf)
-            
-        return filtered_surfs
-    
-    def get_transformations(self):
-        return set([surf.transf_id for surf in self.surfs.values() if surf.transf_id!=0])
-
+#@dataclass
+#class MCNPSurfs_old:
+#    '''Dictonary container for MCNP cell'''
+#
+#    surfs: Dict[int, MCNPSurf] = field(init=False)
+#    
+#    def add_surf(self, surf: MCNPSurf):
+#        if self.surfs.get(surf.id, False):
+#           raise CellIdAlreadyUsed('Vaffanculo, the surface {} has been already used'.format(surf.id))
+#        else:
+#            self.surfs[surf.id] = surf    
+#
+#        
+#    def __post_init__(self):
+#        self.surfs = {}
+#        
+#    def __getitem__(self, surf_id:int):
+#        if surf_id in self.surfs.keys():
+#            return self.surfs[surf_id]
+#        else:
+#            raise CellNotFound('Vaffanculo, surface {} does not exist!'.format(surf_id))
+#    
+#    def __len__(self):
+#        return len(self.surfs)
+#
+#    def __iter__(self):
+#        return (surf for surf in self.surfs.values())
+#    
+#    def filter_surfaces(self, p):
+#        filtered_surfaces= MCNPSurfs()
+#        for surf in list(filter(p, self.__iter__())):
+#            filtered_surfs.add_surf(surf)
+#            
+#        return filtered_surfs
+#    
+#    def get_transformations(self):
+#        return set([surf.transf_id for surf in self.surfs.values() if surf.transf_id!=0])
+#
