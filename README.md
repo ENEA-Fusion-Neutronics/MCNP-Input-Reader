@@ -8,3 +8,12 @@ of large mcnp input files.
 ```shell
 pip install mcnp-input-reader
 ```
+
+## TODO
+
+A lot of things...
+
+## Example
+
+Example taken from [here](https://www.utoledo.edu/med/depts/radther/pdf/MCNP5%20practical%20examples%20lecture%207%20companion.pdf) 
+
