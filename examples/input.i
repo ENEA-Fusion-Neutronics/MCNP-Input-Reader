@@ -1,13 +1,13 @@
 Water phantom
 c Cell cards
-c Water phantom
 1 1 -1.0 2 -1 4 -3 5 -6 fill=1 imp:p,e 1
-c Lattice call for dose deposition
+c Water phantom
 10 1 -1.0 2 -1 4 -3 5 -10 lat=1 u=1 imp:p,e 1
-c Air around
+c Lattice call for dose deposition
 100 2 -0.001293 (101 -102 -100) #1 imp:p,e 1
-c Void cell
+c Air around
 999 0 -101:102:100 imp:p=0 imp:e=0
+c Void cell
 
 c Surface cards
 c Water phantom
