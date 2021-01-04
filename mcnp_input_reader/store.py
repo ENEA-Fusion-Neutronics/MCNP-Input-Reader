@@ -1,17 +1,6 @@
 from .exceptions import CardNotFound, CardIdAlreadyUsed
 from typing import Dict
 
-@dataclass
-class Card:
-    __slots__ = ['card_id', 'start_line', 'end_line']
-
-    card_id: int 
-    start_line: int
-    end_line: int
-
-    def __post_init__(self):
-        pass
-
 class Store:
     _store: Dict[int, Card] 
     
