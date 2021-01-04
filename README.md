@@ -2,6 +2,9 @@
 > The python package for reading mcnp input in a python way
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mcnp-input-reader)
+![License](https://img.shields.io/pypi/l/mcnp-input-reader.svg)](https://github.com/ENEA-Fusion-Neutronics/MCNP-Input-Reader/blob/main/LICENSE)
+
+
 MCNP Input Reader is a python package developed in ENEA to help the modifications and the check integrity 
 of large mcnp input files.
 
