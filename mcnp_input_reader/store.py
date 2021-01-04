@@ -56,9 +56,12 @@ class Store:
     def get_start_end_lines(self):
         return [[card.start_line, card.end_line+1] for card in self._store.values()]
 
-    def to_csv(self, filename, attributes = []):
+    def to_csv(self, filename, fields = []):
         import csv
-        row_list = [attributes] + [[getattr(card, attribute) for attribute in attributes] for card in self._store.values()]
+        if fields == []:
+            fields = next(iter(self._store.values()))._fields
+
+        row_list = [fields] + [[getattr(card, field) for field in fields] for card in self._store.values()]
         with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(row_list)

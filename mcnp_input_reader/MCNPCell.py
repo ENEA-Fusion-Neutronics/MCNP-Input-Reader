@@ -9,7 +9,13 @@ CELL_PARAMETERS = ['IMP', 'VOL', 'PWT', 'EXT',
                     'FCL', 'WWN', 'DXC', 'NONU',
                     'PD', 'TMP', 'U', 'TRCL',
                     'LAT', 'FILL', 'ELPT', 'COSY', 'BFLCL', 'UNC']
-
+def print_table(table):
+    col_width = [max(len(x) for x in col) for col in zip(*table)]
+    table_list = []
+    for line in table:
+        row = "| " + " | ".join("{:{}}".format(x, col_width[i]) for i, x in enumerate(line)) + " |"
+        table_list.append(row)
+    return table_list
 # pattern_cell = re.compile(r'''
 #                     (?P<cell_id>^\d+)                 #CELL ID
 #                     (\s+)?(\n)?(\s+)?   
@@ -208,4 +214,15 @@ class MCNPCells(Store):
     def get_fill_ids(self):
         return set([cell.fill_id for cell in self._store.values() if cell.fill_id!=0])
 
-
+    def __repr__(self):
+           
+        fields = ['id', 'mat_id', 'density', 'imp_n', 'imp_p', 'universe_id', 'fill_id']
+        #fields = next(iter(self._store.values()))._fields
+        data = [fields] + [[getattr(card, field) for field in fields] for card in self._store.values()]
+        lines = []
+        for i, d in enumerate(data):
+            line = '|'.join(str(x).ljust(12) for x in d)
+            lines.append(line)
+            if i == 0:
+                lines.append('-' * len(line))
+        return '\n'.join(lines)
