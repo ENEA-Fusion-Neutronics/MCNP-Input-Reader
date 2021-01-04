@@ -2,7 +2,6 @@ from .exceptions import CardNotFound, CardIdAlreadyUsed
 from typing import Dict
 
 class Store:
-    _store: Dict[int, Card] 
     
     def __init__(self, card_list = []):
         self._store = {}
