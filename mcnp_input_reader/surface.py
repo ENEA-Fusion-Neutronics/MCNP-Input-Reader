@@ -1,5 +1,4 @@
 from collections import namedtuple
-from dataclasses import dataclass, field
 from .exceptions import CellNotFound, CellIdAlreadyUsed, SurfNotFound, SurfIdAlreadyUsed
 from .store import Store
 from typing import Dict, List
