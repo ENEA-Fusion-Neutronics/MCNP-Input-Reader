@@ -1,6 +1,6 @@
 # MCNP Input Reader
 
-MCNP Input Reader is a python package developed in order to facilitate the modifications and the check integrity 
+MCNP Input Reader is a python package developed in ENEA to help the modifications and the check integrity 
 of large mcnp input files.
 
 ## Install
