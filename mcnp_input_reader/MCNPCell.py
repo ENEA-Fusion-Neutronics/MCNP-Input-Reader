@@ -1,8 +1,6 @@
 from .exceptions import CellNotFound, CellIdAlreadyUsed, NotImplementedFeature
 from .store import Store
-#from dataclasses import dataclass, field
 from typing import Dict, List
-#from joblib import Parallel, delayed
 from collections import namedtuple
 
 CELL_PARAMETERS = ['IMP', 'VOL', 'PWT', 'EXT',
