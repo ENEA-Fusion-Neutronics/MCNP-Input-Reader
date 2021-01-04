@@ -40,9 +40,9 @@ jobs:
           PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
         run: |
           poetry publish --build --no-interaction -vv --username $PYPI_USERNAME --password $PYPI_PASSWORD
-      - if: github.event_name == 'push'
-        name: Generate release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+#      - if: github.event_name == 'push'
+#        name: Generate release
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        run: npx semantic-release
 
