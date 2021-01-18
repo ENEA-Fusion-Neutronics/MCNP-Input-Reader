@@ -2,7 +2,7 @@ from .exceptions import CellNotFound, CellIdAlreadyUsed, NotImplementedFeature
 from .store import Store
 from typing import Dict, List
 from collections import namedtuple
-
+from mcnp_input_reader.util.lines import remove_comments, add_space_to_parentheses, split_on_tag
 CELL_PARAMETERS = ['IMP', 'VOL', 'PWT', 'EXT',
                     'FCL', 'WWN', 'DXC', 'NONU',
                     'PD', 'TMP', 'U', 'TRCL',
@@ -60,29 +60,23 @@ class MCNPCell(namedtuple('MCNPCell', ['id','mat_id','density','geometry',
 
     @classmethod
     def from_string(cls, cell_desc: str, start_line: int):
-        cell_desc_split = cell_desc.splitlines()
-        cell_pure = ' '.join([line.split('$')[0].strip() for line in cell_desc_split if line[0].lower() != 'c']).replace('(', ' (').replace(')', ') ')
-        cell_pure_split=cell_pure.split()
-        cell_id=int(cell_pure_split[0])
-        if cell_pure_split[1].upper() != 'LIKE':
-            mat_id=int(cell_pure_split[1])
-            if mat_id==0:
-                the_rest=' '.join(cell_pure_split[2:]).upper()
-                density = 0.0
-            else:
-                the_rest=' '.join(cell_pure_split[3:]).upper()
-                density = float(cell_pure_split[2])
+        cell_desc_space = add_space_to_parentheses(cell_desc)
+        # cell_pure = ' '.join([line.split('$')[0].strip() for line in cell_desc_split if line[0].lower() != 'c']).replace('(', ' (').replace(')', ') ')
+        cell_pure = remove_comments(cell_desc_space)
+        cell_pure_split = split_on_tag(cell_pure, tags = CELL_PARAMETERS)
+        cell_part_one = cell_pure_split[0].split()
+        cell_id=int(cell_part_one[0])
+        if cell_part_one[1].upper() != 'LIKE':
             
-            for x in CELL_PARAMETERS:
-                the_rest=the_rest.replace(x,f'\n{x}')
-            
-            the_rest=the_rest.replace('*\nFILL','\n*FILL').splitlines()
-            geometry=' '.join(the_rest[0].split())#.replace(' (','(').replace(') ',')')
+            mat_id=int(cell_part_one[1])
+            density = float(cell_part_one[2]) if mat_id else 0.0
+            index_geometry = 3 if mat_id else 2
+            geometry = ' '.join(cell_part_one[index_geometry:])
             geom = geometry.replace('(', ' ').replace(')', ' ').replace(':', ' ').replace('-', ' ').replace('+', ' ').split()
             surfaces=set([int(s) for s in geom if s[0] != '#'])
             not_cells=set([int(s[1:]) for s in geom if (s[0] == '#') and (len(s) > 1)])
             parameters={}
-            for p in the_rest[1:]:
+            for p in cell_pure_split[1:]:
                 k_v = p.replace(', ',',').replace('=',' ').split()
                 k=k_v[0]
                 v=k_v[1:]
@@ -120,6 +114,7 @@ class MCNPCell(namedtuple('MCNPCell', ['id','mat_id','density','geometry',
             universe_id = int(parameters.get('U',[0])[0])
         else:
             raise NotImplementedFeature('LIKE has not been implemented yet!')
+        cell_desc_split = cell_desc.splitlines()
         comment_lines = []
         for l in reversed(cell_desc_split):
             if l[0].lower() == 'c' or l.strip()[0] == '$':
@@ -174,12 +169,13 @@ input_cell_description:
 
 class MCNPCells(Store):
     
-    def __init__(self, cell_list = []):
-        super().__init__(cell_list)
+    def __init__(self, cell_list = [], parent = None):
+        super().__init__(cell_list, parent)
         self.cardnotfound_exception = CellNotFound
         self.cardidalreadyused_exception = CellIdAlreadyUsed
         self.card_name = 'cell'
-    
+        self.DEFAULT_FIELDS = ['id', 'mat_id', 'density', 'imp_n', 'imp_p', 'universe_id', 'fill_id']
+
     def filter_cells(self, p, all_levels=False):
         filtered_cells = MCNPCells(list(filter(p, self.__iter__())))
            
@@ -211,16 +207,7 @@ class MCNPCells(Store):
 
     def get_fill_ids(self):
         return set([cell.fill_id for cell in self._store.values() if cell.fill_id!=0])
-
-    def __repr__(self):
-           
-        fields = ['id', 'mat_id', 'density', 'imp_n', 'imp_p', 'universe_id', 'fill_id']
-        #fields = next(iter(self._store.values()))._fields
-        data = [fields] + [[getattr(card, field) for field in fields] for card in self._store.values()]
-        lines = []
-        for i, d in enumerate(data):
-            line = '|'.join(str(x).ljust(12) for x in d)
-            lines.append(line)
-            if i == 0:
-                lines.append('-' * len(line))
-        return '\n'.join(lines)
+    
+    def get_comments(self):
+        return set([cell.comment for cell in self._store.values() if cell.comment != ''])
+    

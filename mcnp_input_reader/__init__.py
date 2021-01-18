@@ -5,5 +5,6 @@ from .material import *
 from .fill_transformation import *
 from .main import *
 from .store import *
+from .util import lines
 
 __version__ = '0.1.7'

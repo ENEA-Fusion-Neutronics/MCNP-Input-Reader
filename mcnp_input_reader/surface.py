@@ -48,7 +48,7 @@ _SURFS_TYPE={'P':'Plane',
             'ARB':'ARB'
            }
 
-class MCNPSurf(namedtuple('MCNPSurf', ['id','surface_type','surface_parameters','transf_id','start_line','end_line','input_surface_description'])):
+class MCNPSurf(namedtuple('MCNPSurf', ['id', 'is_reflecting_surface', 'surface_type','surface_parameters','transf_id','start_line','end_line','input_surface_description'])):
     """MCNPSurf is an immutable and lightweight object"""
     __slots__ = ()
 
@@ -57,7 +57,12 @@ class MCNPSurf(namedtuple('MCNPSurf', ['id','surface_type','surface_parameters',
         surf_desc_split = surface_desc.upper().splitlines()
         surf_pure = ' '.join([line.split('$')[0].strip() for line in surf_desc_split if line[0].lower() != 'c']).replace('(', ' (').replace(')', ') ')
         surf_pure_split = surf_pure.split()
-        surf_id = int(surf_pure_split[0])
+        if surf_pure_split[0][0]=='*':
+            is_reflecting_surface = True
+            surf_id = int(surf_pure_split[0][1:])
+        else:
+            is_reflecting_surface = False
+            surf_id = int(surf_pure_split[0])
         
         if surf_pure_split[1] in _SURFS_TYPE.keys():
             surface_type = surf_pure_split[1]
@@ -90,14 +95,14 @@ class MCNPSurf(namedtuple('MCNPSurf', ['id','surface_type','surface_parameters',
         input_surface_description = '\n'.join(surf_desc_split[:len_surf_description])
         end_line = start_line+len_surf_description-1
 
-        return cls(id = surf_id, surface_type = surface_type, surface_parameters = surface_parameters, transf_id = transf_id, start_line = start_line, end_line = end_line, input_surface_description = input_surface_description)
+        return cls(id = surf_id, is_reflecting_surface = is_reflecting_surface, surface_type = surface_type, surface_parameters = surface_parameters, transf_id = transf_id, start_line = start_line, end_line = end_line, input_surface_description = input_surface_description)
 
 
 
 class MCNPSurfs(Store):
     
-    def __init__(self, surface_list = []):
-        super().__init__(surface_list)
+    def __init__(self, surface_list = [], parent = None):
+        super().__init__(surface_list, parent)
         self.cardnotfound_exception = SurfNotFound
         self.cardidalreadyused_exception = SurfIdAlreadyUsed
         self.card_name = 'surface'
