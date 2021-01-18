@@ -1,5 +1,5 @@
 # MCNP Input Reader
-> The python package for reading mcnp input in a python way
+> The package for reading mcnp input in a pythonic way
 
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mcnp-input-reader)](https://pypi.org/project/mcnp-input-reader/)
 [![License](https://img.shields.io/pypi/l/mcnp-input-reader.svg)](https://github.com/ENEA-Fusion-Neutronics/MCNP-Input-Reader/blob/main/LICENSE)
