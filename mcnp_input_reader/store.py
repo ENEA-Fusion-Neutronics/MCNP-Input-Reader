@@ -3,11 +3,14 @@ from typing import Dict
 
 class Store:
     
-    def __init__(self, card_list = []):
+    def __init__(self, card_list = [], parent = None):
         self._store = {}
         self.cardnotfound_exception = CardNotFound
         self.cardidalreadyused_exception = CardIdAlreadyUsed
         self.card_name = 'card'
+        self.DEFAULT_FIELDS = ['id']
+        self.table = ''
+        self.parent = parent
         for card in card_list:
             self.add(card)
     
@@ -33,11 +36,14 @@ class Store:
            raise self.cardidalreadyused_exception('Please, the {} {} has been already used'.format(self.card_name, card.id))
         else:
             self._store[card.id] = card
-   
+    
+    def union(self, other):
+        self._store = {**self._store, **other._store}
+
     def filter(self, p):
         return self.__class__(list(filter(p, self.__iter__())))
 
-    def list_ids(self):
+    def get_ids(self):
         return list(self._store.keys())
 
     def get_start_end_lines(self):
@@ -52,3 +58,19 @@ class Store:
         with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(row_list)
+
+    def as_table(self, fields = []):
+        
+        if fields == []:
+            fields = self.DEFAULT_FIELDS
+        #fields = next(iter(self._store.values()))._fields
+        data = [fields] + [[getattr(card, field) for field in fields] for card in self._store.values()]
+        lines = []
+        for i, d in enumerate(data):
+            line = '|'.join(str(x).ljust(12) for x in d)
+            lines.append(line)
+            if i == 0:
+                lines.append('-' * len(line))
+        table = '\n'.join(lines)
+        print(table)
+        

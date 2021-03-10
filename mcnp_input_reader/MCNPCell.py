@@ -2,11 +2,12 @@ from .exceptions import CellNotFound, CellIdAlreadyUsed, NotImplementedFeature
 from .store import Store
 from typing import Dict, List
 from collections import namedtuple
-
+from mcnp_input_reader.util.lines import remove_comments, add_space_to_parentheses, split_on_tag, get_comment_and_endline
 CELL_PARAMETERS = ['IMP', 'VOL', 'PWT', 'EXT',
                     'FCL', 'WWN', 'DXC', 'NONU',
                     'PD', 'TMP', 'U', 'TRCL',
-                    'LAT', 'FILL', 'ELPT', 'COSY', 'BFLCL', 'UNC']
+                    'LAT', 'FILL', 'ELPT', 'COSY', 
+                    'BFLCL', 'UNC', 'MAT', 'RHO', 'LIKE', 'BUT']
 def print_table(table):
     col_width = [max(len(x) for x in col) for col in zip(*table)]
     table_list = []
@@ -27,10 +28,11 @@ def print_table(table):
 # pattern_cell_2= re.compile(r'([A-Z]+:?\w?.*?(?=[A-Z]|$))', re.IGNORECASE)
 
 
-class MCNPCell(namedtuple('MCNPCell', ['id','mat_id','density','geometry',
-                                       'fill_id','fill_type','universe_id','imp_p',
-                                       'imp_n', 'imp_e', 'transf','transf_id', 'lat', 'start_line','end_line',
-                                       'comment','input_cell_description','surfaces','not_cells'])):
+class MCNPCell(namedtuple('MCNPCell', ['id', 'like', 'mat_id','density','geometry',
+                                       'fill_id','fill_transformation_unit','universe_id','imp_p',
+                                       'imp_n', 'imp_e', 'fill_transformation','fill_transformation_id', 
+                                       'lat', 'start_line','end_line', 'comment','input_cell_description',
+                                       'surfaces','not_cells'])):
     """MCNPCell is an immutable object for cell parameters"""
     __slots__ = ()
 #class MCNPCell2(NamedTuple):
@@ -57,95 +59,120 @@ class MCNPCell(namedtuple('MCNPCell', ['id','mat_id','density','geometry',
     # surfaces: List[int]  
     # not_cells: List[int] 
 
+    #def __init__(self):
+    #    self.parent = None
 
     @classmethod
-    def from_string(cls, cell_desc: str, start_line: int):
-        cell_desc_split = cell_desc.splitlines()
-        cell_pure = ' '.join([line.split('$')[0].strip() for line in cell_desc_split if line[0].lower() != 'c']).replace('(', ' (').replace(')', ') ')
-        cell_pure_split=cell_pure.split()
-        cell_id=int(cell_pure_split[0])
-        if cell_pure_split[1].upper() != 'LIKE':
-            mat_id=int(cell_pure_split[1])
-            if mat_id==0:
-                the_rest=' '.join(cell_pure_split[2:]).upper()
-                density = 0.0
-            else:
-                the_rest=' '.join(cell_pure_split[3:]).upper()
-                density = float(cell_pure_split[2])
-            
-            for x in CELL_PARAMETERS:
-                the_rest=the_rest.replace(x,f'\n{x}')
-            
-            the_rest=the_rest.replace('*\nFILL','\n*FILL').splitlines()
-            geometry=' '.join(the_rest[0].split())#.replace(' (','(').replace(') ',')')
-            geom = geometry.replace('(', ' ').replace(')', ' ').replace(':', ' ').replace('-', ' ').replace('+', ' ').split()
-            surfaces=set([int(s) for s in geom if s[0] != '#'])
-            not_cells=set([int(s[1:]) for s in geom if (s[0] == '#') and (len(s) > 1)])
-            parameters={}
-            for p in the_rest[1:]:
-                k_v = p.replace(', ',',').replace('=',' ').split()
-                k=k_v[0]
-                v=k_v[1:]
-                
-                if 'IMP' in k and ',' in k:
-                    keys = k.split(':')[1].split(',') 
-                    for new_key in keys:
-                        new_key = 'IMP:' + new_key
-                        parameters[new_key] = v
-                else:
-                    parameters[k]=v
-            imp_n = float(parameters.get('IMP:N',[0])[0])
-            imp_p = float(parameters.get('IMP:P', [0])[0])
-            imp_e = float(parameters.get('IMP:E', [0])[0])
-            lat = int(parameters.get('LAT', [0])[0])
-            if '*FILL' in parameters.keys():
-                fill_id= int(parameters['*FILL'][0])
-                fill_type='*FILL'
-                transf  = ' '.join(parameters['*FILL'][1:]).replace('(',' ').replace(')',' ').strip()
-                len_transf=len(transf.split())
-                transf_id = int(transf) if len_transf==1 else 0
-                transf = transf if len_transf > 1 else ''
-            elif 'FILL' in parameters.keys():
-                fill_id = int(parameters['FILL'][0])
-                fill_type='FILL'
-                transf  = ' '.join(parameters['FILL'][1:]).replace('(',' ').replace(')',' ').strip()
-                len_transf = len(transf.split())
-                transf_id = int(transf) if len_transf==1 else 0
-                transf = transf if len_transf > 1 else ''
-            else:
-                fill_id = 0
-                fill_type = ''
-                transf_id = 0
-                transf = ''
-            universe_id = int(parameters.get('U',[0])[0])
-        else:
-            raise NotImplementedFeature('LIKE has not been implemented yet!')
-        comment_lines = []
-        for l in reversed(cell_desc_split):
-            if l[0].lower() == 'c' or l.strip()[0] == '$':
-                comment_lines.append(l.strip())
-            else:
-                break
-        comment_list = [l[1:] for l in comment_lines if l[0] == '$']
-        if len(comment_list)==0:
-            for l in reversed(comment_lines):
-                comment_list.append(l[1:])
-                if len(l.split())>1:
-                    break
-        comment=' '.join(comment_list).strip()
-        if comment.lower().replace('c', '').replace('-', '').strip():
-            len_comment_list = len(comment_list)
-        else:
-            comment = ''
-            len_comment_list = 0
-        len_cell_description = len(cell_desc_split)-len(comment_lines)+len_comment_list
-        input_cell_description = '\n'.join(cell_desc_split[:len_cell_description])
-        end_line = start_line+len_cell_description-1
+    def from_string(cls, cell_description: str, start_line: int):
+        cell_desc_space = add_space_to_parentheses(cell_description)
+        cell_description_wo_comments = remove_comments(cell_desc_space)
+        cell_description_splitted = split_on_tag(cell_description_wo_comments, tags = CELL_PARAMETERS)
+        cell_part_one = cell_description_splitted[0].split()
+        cell_id=int(cell_part_one[0])
+        parameters = []
+        if len(cell_part_one) > 1:
+            mat_id=int(cell_part_one[1])
+            density = float(cell_part_one[2]) if mat_id else 0.0
+            max_split = 3 if mat_id else 2
+            geometry = cell_description_splitted[0].split(maxsplit = max_split)[-1]
+            parameters.extend([('MAT', mat_id), ('RHO', density), ('GEOMETRY', geometry), ('LIKE', 0)])
         
-        return cls(id=cell_id, mat_id=mat_id, density=density, geometry=geometry, fill_id=fill_id, fill_type=fill_type, 
-            universe_id=universe_id, imp_p=imp_p, imp_n=imp_n, imp_e=imp_e, transf=transf, lat=lat, transf_id=transf_id, start_line=start_line,\
+        def explode_particle_parameter(parameter_splitted):
+            ''' e.g.: (IMP:N,P - 1,0) => (IMP:N, 1), (IMP:P, 0) 
+                 or   IMP:N,P=1 => IMP:N=1, IMP:P=1
+            '''
+            key, particles = parameter_splitted[0].split(':', maxsplit = 1)
+            particles = particles.split(',')
+            values = parameter_splitted[1].split()
+            if len(particles) == len(values):
+                return [('{}:{}'.format(key, particle), values[i]) for i, particle in enumerate(particles)]
+            elif len(values) == 1:    
+                return [('{}:{}'.format(key, particle), values[0]) for particle in particles]
+
+        for parameter in cell_description_splitted[1:]:
+            parameter_splitted = parameter.replace(', ',',').replace('=',' ').split(maxsplit = 1)
+            if ':' in parameter_splitted[0] and ',' in parameter_splitted[0]:
+                parameters.extend(explode_particle_parameter(parameter_splitted))
+            else:
+                if len(parameter_splitted) == 2:
+                    parameters.append((parameter_splitted[0], parameter_splitted[1]))
+        
+
+        def get_parameter(parameter):
+            column_index = index_containing_parameter(parameters, parameter)
+            if column_index != -1:
+                item = parameters[column_index]
+            elif ':' in parameter and column_index == 1:
+                parameter = parameter.split(':')[0]
+                column_index = index_containing_parameter(parameters, parameter)
+                if column_index != -1:
+                    item = parameters[column_index] 
+            else:
+                return None
+            return item
+        
+        def get_value(parameter, default):
+            type_parameter = type(default)
+            value = get_parameter(parameter)
+            if value:
+                return type_parameter(value[1])
+            return default
+
+        def get_unit_rotation(parameter):
+            parameter_key = get_parameter(parameter)
+            if parameter_key:
+                if parameter_key[0][0]=='*':
+                    return 'angles-in-degrees'
+                else:
+                    return 'cosines-of-the-angles'
+            return ''
+        
+        def get_rotational_parameters(parameter):
+            if parameter != '':
+                transformation = parameter.replace('(',' ').replace(')',' ').strip() if len(parameter)>0 else ''
+                len_transf=len(transformation.split())
+                transformation_id = int(transformation) if len_transf==1 else 0
+                transformation = transformation if len_transf > 1 else ''
+                return transformation_id, transformation
+            else:
+                return 0, ''
+
+        material_id = get_value('MAT', 0)
+        density = get_value('RHO', 0.0)
+        geometry = get_value('GEOMETRY', '')
+        like = get_value('LIKE', 0)
+        imp_n = get_value('IMP:N', 0.0)
+        imp_p = get_value('IMP:P', 0.0)
+        imp_e = get_value('IMP:E', 0.0)
+        lat = get_value('LAT', 0)
+        fill = get_value('FILL', '')
+        fill_splitted = fill.split(maxsplit=1)
+        fill_id = int(fill_splitted[0]) if len(fill_splitted) > 0 and ':' not in fill_splitted[0] else 0
+        fill_transformation_id, fill_transformation = get_rotational_parameters(fill_splitted[1] if ':' not in fill_splitted[0] else fill) if len(fill_splitted) == 2 else (0, '')
+        fill_transformation_unit = get_unit_rotation('FILL')
+        TRCL_id, TRCL_transformation = get_rotational_parameters(get_value('TRCL',''))
+        TRCL_unit = get_unit_rotation('TRCL')
+        universe_id = get_value('U', 0)
+        
+        geometry_splitted = geometry.replace('(', ' ').replace(')', ' ').replace(':', ' ').replace('-', ' ').replace('+', ' ').split()
+        surfaces=set([int(s) for s in geometry_splitted if s[0] != '#'])
+        not_cells=set([int(s[1:]) for s in geometry_splitted if (s[0] == '#') and (len(s) > 1)])
+        
+        input_cell_description, comment, end_line = get_comment_and_endline(cell_description, start_line)
+       
+        return cls(id=cell_id, like=like, mat_id=material_id, density=density, geometry=geometry, fill_id=fill_id, fill_transformation_unit=fill_transformation_unit, 
+            universe_id=universe_id, imp_p=imp_p, imp_n=imp_n, imp_e=imp_e, fill_transformation=fill_transformation, 
+            lat=lat, fill_transformation_id=fill_transformation_id, start_line=start_line,
             end_line=end_line, comment=comment, input_cell_description=input_cell_description, surfaces=surfaces, not_cells=not_cells)
-    
+   
+        @property
+        def surfaces(self):
+            if self.like != 0:
+                if self.parent:
+                    return self.parent[self.like].surfaces
+            else:
+                return self.surfaces
+
     def __str__(self):
         return '''<MCNPCell>
 id = {}
@@ -169,17 +196,24 @@ comment = {}
 input_cell_description: 
 {}
 '''.format(self.id, self.mat_id, self.density, self.geometry, self.surfaces, self.not_cells, self.fill_id, self.fill_type, self.universe_id,
-               self.imp_p, self.imp_n, self.imp_e, self.transf, self.transf_id, self.lat, self.start_line, self.end_line,
+               self.imp_p, self.imp_n, self.imp_e, self.transf, self.fill_transformation_id, self.lat, self.start_line, self.end_line,
                self.comment, self.input_cell_description)
+
+def index_containing_parameter(the_list, substring):
+    for i, s in enumerate(the_list):
+        if substring == s[0]:
+            return i
+    return -1
 
 class MCNPCells(Store):
     
-    def __init__(self, cell_list = []):
-        super().__init__(cell_list)
+    def __init__(self, cell_list = [], parent = None):
+        super().__init__(cell_list, parent)
         self.cardnotfound_exception = CellNotFound
         self.cardidalreadyused_exception = CellIdAlreadyUsed
         self.card_name = 'cell'
-    
+        self.DEFAULT_FIELDS = ['id', 'mat_id', 'density', 'imp_n', 'imp_p', 'universe_id', 'fill_id']
+
     def filter_cells(self, p, all_levels=False):
         filtered_cells = MCNPCells(list(filter(p, self.__iter__())))
            
@@ -204,23 +238,14 @@ class MCNPCells(Store):
         return set([cell.mat_id for cell in self._store.values() if cell.mat_id!=0])
 
     def get_transformations(self):
-        return set([cell.transf_id for cell in self._store.values() if cell.transf_id!=0])
+        return set([cell.fill_transformation_id for cell in self._store.values() if cell.fill_transformation_id != 0])
 
     def get_universe_ids(self):
         return set([cell.universe_id for cell in self._store.values() if cell.universe_id!=0])
 
     def get_fill_ids(self):
         return set([cell.fill_id for cell in self._store.values() if cell.fill_id!=0])
-
-    def __repr__(self):
-           
-        fields = ['id', 'mat_id', 'density', 'imp_n', 'imp_p', 'universe_id', 'fill_id']
-        #fields = next(iter(self._store.values()))._fields
-        data = [fields] + [[getattr(card, field) for field in fields] for card in self._store.values()]
-        lines = []
-        for i, d in enumerate(data):
-            line = '|'.join(str(x).ljust(12) for x in d)
-            lines.append(line)
-            if i == 0:
-                lines.append('-' * len(line))
-        return '\n'.join(lines)
+    
+    def get_comments(self):
+        return set([cell.comment for cell in self._store.values() if cell.comment != ''])
+    

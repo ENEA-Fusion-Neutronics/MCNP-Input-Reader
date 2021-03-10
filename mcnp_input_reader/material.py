@@ -42,8 +42,8 @@ class MCNPMaterial(namedtuple('MCNPMaterial', ['id','composition','start_line','
 
 class MCNPMaterials(Store):
     
-    def __init__(self, material_list = []):
-        super().__init__(material_list)
+    def __init__(self, material_list = [], parent = None):
+        super().__init__(material_list, parent)
         self.cardnotfound_exception = MaterialNotFound
         self.cardidalreadyused_exception = MaterialIdAlreadyUsed
         self.card_name = 'material'

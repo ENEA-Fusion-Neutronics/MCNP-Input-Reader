@@ -43,8 +43,8 @@ class MCNPTransformation(namedtuple('MCNPTransf', ['id','parameters','start_line
 
 class MCNPTransformations(Store):
     
-    def __init__(self, transf_list = []):
-        super().__init__(transf_list)
+    def __init__(self, transf_list = [], parent = None):
+        super().__init__(transf_list, parent)
         self.cardnotfound_exception = TransformationNotFound
         self.cardidalreadyused_exception = TransformationIdAlreadyUsed
         self.card_name = 'transformation'
