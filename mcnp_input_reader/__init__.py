@@ -1,5 +1,5 @@
 from .exceptions import *
-from .MCNPCell import *
+from .cell import *
 from .surface import *
 from .material import *
 from .fill_transformation import *

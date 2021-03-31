@@ -1,13 +1,16 @@
-from .exceptions import CellNotFound, CellIdAlreadyUsed, NotImplementedFeature
+from .exceptions import CellNotFound, CellIdAlreadyUsed, ParticleParameterError, ParameterError, NotImplementedFeature
 from .store import Store
 from typing import Dict, List
 from collections import namedtuple
 from mcnp_input_reader.util.lines import remove_comments, add_space_to_parentheses, split_on_tag, get_comment_and_endline
+
+
 CELL_PARAMETERS = ['IMP', 'VOL', 'PWT', 'EXT',
-                    'FCL', 'WWN', 'DXC', 'NONU',
-                    'PD', 'TMP', 'U', 'TRCL',
-                    'LAT', 'FILL', 'ELPT', 'COSY', 
-                    'BFLCL', 'UNC', 'MAT', 'RHO', 'LIKE', 'BUT']
+                   'FCL', 'WWN', 'DXC', 'NONU',
+                   'PD', 'TMP', 'U', 'TRCL',
+                   'LAT', 'FILL', 'ELPT', 'COSY', 
+                   'BFLCL', 'UNC', 'MAT', 'RHO', 'LIKE', 'BUT']
+
 def print_table(table):
     col_width = [max(len(x) for x in col) for col in zip(*table)]
     table_list = []
@@ -15,6 +18,7 @@ def print_table(table):
         row = "| " + " | ".join("{:{}}".format(x, col_width[i]) for i, x in enumerate(line)) + " |"
         table_list.append(row)
     return table_list
+
 # pattern_cell = re.compile(r'''
 #                     (?P<cell_id>^\d+)                 #CELL ID
 #                     (\s+)?(\n)?(\s+)?   
@@ -33,34 +37,10 @@ class MCNPCell(namedtuple('MCNPCell', ['id', 'like', 'mat_id','density','geometr
                                        'imp_n', 'imp_e', 'fill_transformation','fill_transformation_id', 
                                        'lat', 'start_line','end_line', 'comment','input_cell_description',
                                        'surfaces','not_cells'])):
-    """MCNPCell is an immutable object for cell parameters"""
-    __slots__ = ()
-#class MCNPCell2(NamedTuple):
-# @dataclass
-# class MCNPCell2:
-    # __slots__ = ('cell_id', 'mat_id', 'density', 'geometry', 'fill_id', 'fill_type', 
-    #              'universe_id', 'imp_p', 'imp_n', 'transf', 'transf_id', 'start_line', 
-    #              'end_line', 'comment', 'input_cell_description', 'surfaces', 'not_cells')
-    # cell_id: int 
-    # mat_id: int 
-    # density: float 
-    # geometry: str 
-    # fill_id: int 
-    # fill_type: str 
-    # universe_id: int 
-    # imp_p: float 
-    # imp_n: float 
-    # transf: str 
-    # transf_id: int 
-    # start_line: int
-    # end_line: int
-    # comment: str 
-    # input_cell_description: str 
-    # surfaces: List[int]  
-    # not_cells: List[int] 
 
-    #def __init__(self):
-    #    self.parent = None
+    """MCNPCell is an immutable object for cell parameters"""
+
+    __slots__ = ()
 
     @classmethod
     def from_string(cls, cell_description: str, start_line: int):
@@ -77,9 +57,9 @@ class MCNPCell(namedtuple('MCNPCell', ['id', 'like', 'mat_id','density','geometr
             geometry = cell_description_splitted[0].split(maxsplit = max_split)[-1]
             parameters.extend([('MAT', mat_id), ('RHO', density), ('GEOMETRY', geometry), ('LIKE', 0)])
         
-        def explode_particle_parameter(parameter_splitted):
-            ''' e.g.: (IMP:N,P - 1,0) => (IMP:N, 1), (IMP:P, 0) 
-                 or   IMP:N,P=1 => IMP:N=1, IMP:P=1
+        def explode_particle_parameter(parameter_splitted: List):
+            ''' e.g.: IMP:N,P 1,0 => IMP:N=1 IMP:P=0 => [(IMP:N, 1), (IMP:P, 0)] 
+                 or   IMP:N,P=1 => IMP:N=1 IMP:P=1 => [(IMP:N, 1), (IMP:P, 1)]
             '''
             key, particles = parameter_splitted[0].split(':', maxsplit = 1)
             particles = particles.split(',')
@@ -88,17 +68,30 @@ class MCNPCell(namedtuple('MCNPCell', ['id', 'like', 'mat_id','density','geometr
                 return [('{}:{}'.format(key, particle), values[i]) for i, particle in enumerate(particles)]
             elif len(values) == 1:    
                 return [('{}:{}'.format(key, particle), values[0]) for particle in particles]
+            else:
+                raise ParticleParameterError('CELL {}: the lenght of values for {} card is not correct'.format(cell_id, key))
 
         for parameter in cell_description_splitted[1:]:
             parameter_splitted = parameter.replace(', ',',').replace('=',' ').split(maxsplit = 1)
             if ':' in parameter_splitted[0] and ',' in parameter_splitted[0]:
-                parameters.extend(explode_particle_parameter(parameter_splitted))
+                exploded_particle_parameters = explode_particle_parameter(parameter_splitted) 
+                if all(param.split(":")[0] in CELL_PARAMETERS for param in list(map(list, zip(*exploded_particle_parameters)))[0]): 
+                    if not any(param in list(map(list, zip(*parameters)))[0] for param in list(map(list, zip(*exploded_particle_parameters)))[0]):
+                        parameters.extend(exploded_particle_parameters)
+                    else:
+                        raise ParameterError("CELL {}: the particle parameters are defined multiple times".format(cell_id))
+                else:
+                    raise ParameterError("CELL {}: the particle parameters are not recognized".format(cell_id))
             else:
-                if len(parameter_splitted) == 2:
-                    parameters.append((parameter_splitted[0], parameter_splitted[1]))
-        
+                if len(parameter_splitted) == 2 and parameter_splitted[0].split(":")[0] in CELL_PARAMETERS:
+                    if parameter_splitted[0] not in list(map(list, zip(*parameters)))[0]:
+                        parameters.append((parameter_splitted[0], parameter_splitted[1]))
+                    else:
+                        raise ParameterError("CELL {}: the parameter {} is defined multiple times".format(cell_id, parameter_splitted[0]))
+                else:
+                    raise ParameterError("CELL {}: the parameter {} in the cell definition is not recognised".format(cell_id, parameter_splitted))
 
-        def get_parameter(parameter):
+        def get_parameter(parameter: str):
             column_index = index_containing_parameter(parameters, parameter)
             if column_index != -1:
                 item = parameters[column_index]
@@ -107,31 +100,36 @@ class MCNPCell(namedtuple('MCNPCell', ['id', 'like', 'mat_id','density','geometr
                 column_index = index_containing_parameter(parameters, parameter)
                 if column_index != -1:
                     item = parameters[column_index] 
+                else:
+                    return None
             else:
                 return None
             return item
         
-        def get_value(parameter, default):
+        def get_value(parameter: str, default):
             type_parameter = type(default)
             value = get_parameter(parameter)
             if value:
-                return type_parameter(value[1])
+                try:
+                    return type_parameter(value[1])
+                except ValueError:
+                    raise ParameterError("CELL {}: the parameter {} is not properly defined".format(cell_id, parameter))
             return default
 
-        def get_unit_rotation(parameter):
+        def get_unit_rotation(parameter: str):
             parameter_key = get_parameter(parameter)
             if parameter_key:
                 if parameter_key[0][0]=='*':
-                    return 'angles-in-degrees'
+                    return 'degrees'
                 else:
-                    return 'cosines-of-the-angles'
+                    return 'cosines'
             return ''
         
-        def get_rotational_parameters(parameter):
+        def get_rotational_parameters(parameter: str):
             if parameter != '':
-                transformation = parameter.replace('(',' ').replace(')',' ').strip() if len(parameter)>0 else ''
-                len_transf=len(transformation.split())
-                transformation_id = int(transformation) if len_transf==1 else 0
+                transformation = parameter.replace('(',' ').replace(')',' ').strip() if len(parameter) > 0 else ''
+                len_transf = len(transformation.split())
+                transformation_id = int(transformation) if len_transf == 1 else 0
                 transformation = transformation if len_transf > 1 else ''
                 return transformation_id, transformation
             else:
@@ -155,15 +153,19 @@ class MCNPCell(namedtuple('MCNPCell', ['id', 'like', 'mat_id','density','geometr
         universe_id = get_value('U', 0)
         
         geometry_splitted = geometry.replace('(', ' ').replace(')', ' ').replace(':', ' ').replace('-', ' ').replace('+', ' ').split()
-        surfaces=set([int(s) for s in geometry_splitted if s[0] != '#'])
-        not_cells=set([int(s[1:]) for s in geometry_splitted if (s[0] == '#') and (len(s) > 1)])
+        surfaces = set([int(s) for s in geometry_splitted if s[0] != '#'])
+        not_cells = set([int(s[1:]) for s in geometry_splitted if (s[0] == '#') and (len(s) > 1)])
         
         input_cell_description, comment, end_line = get_comment_and_endline(cell_description, start_line)
        
-        return cls(id=cell_id, like=like, mat_id=material_id, density=density, geometry=geometry, fill_id=fill_id, fill_transformation_unit=fill_transformation_unit, 
-            universe_id=universe_id, imp_p=imp_p, imp_n=imp_n, imp_e=imp_e, fill_transformation=fill_transformation, 
-            lat=lat, fill_transformation_id=fill_transformation_id, start_line=start_line,
-            end_line=end_line, comment=comment, input_cell_description=input_cell_description, surfaces=surfaces, not_cells=not_cells)
+        return cls(id=cell_id, like=like, mat_id=material_id, density=density, geometry=geometry, 
+                   fill_id=fill_id, fill_transformation_unit=fill_transformation_unit, 
+                   universe_id=universe_id, imp_p=imp_p, imp_n=imp_n, imp_e=imp_e, 
+                   fill_transformation=fill_transformation, lat=lat, 
+                   fill_transformation_id=fill_transformation_id, 
+                   start_line=start_line, end_line=end_line, comment=comment, 
+                   input_cell_description=input_cell_description, surfaces=surfaces, 
+                   not_cells=not_cells)
    
         @property
         def surfaces(self):
@@ -182,22 +184,22 @@ geometry = {}
 surfaces = {}
 not_cells = {}
 fill_id = {}
-fill_type = {}
 universe_id = {}
 imp_p = {}
 imp_n = {}
 imp_e = {}
-transf = {}
-transf_id = {}
+transformation = {}
+fill_transformation_id = {}
 lat = {}
 start_line = {}
 end_line = {}
 comment = {}
 input_cell_description: 
 {}
-'''.format(self.id, self.mat_id, self.density, self.geometry, self.surfaces, self.not_cells, self.fill_id, self.fill_type, self.universe_id,
-               self.imp_p, self.imp_n, self.imp_e, self.transf, self.fill_transformation_id, self.lat, self.start_line, self.end_line,
-               self.comment, self.input_cell_description)
+'''.format(self.id, self.mat_id, self.density, self.geometry, self.surfaces, self.not_cells, self.fill_id, 
+           self.universe_id, self.imp_p, self.imp_n, self.imp_e, 
+           self.fill_transformation, self.fill_transformation_id, self.lat, self.start_line, self.end_line,
+           self.comment, self.input_cell_description)
 
 def index_containing_parameter(the_list, substring):
     for i, s in enumerate(the_list):

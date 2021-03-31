@@ -38,7 +38,10 @@ class Store:
             self._store[card.id] = card
     
     def union(self, other):
-        self._store = {**self._store, **other._store}
+        if self.card_name == other.card_name:
+            self._store = {**self._store, **other._store}
+        else:
+            raise Exception("Union denied: please use {}".format(self.card_name))
 
     def filter(self, p):
         return self.__class__(list(filter(p, self.__iter__())))
