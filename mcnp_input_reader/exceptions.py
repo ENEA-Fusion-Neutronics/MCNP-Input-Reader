@@ -30,3 +30,9 @@ class TransformationIdAlreadyUsed(Exception):
 
 class NotImplementedFeature(Exception):
     pass
+
+class ParameterError(Exception):
+    pass
+
+class ParticleParameterError(Exception):
+    pass
