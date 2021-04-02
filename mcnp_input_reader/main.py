@@ -2,8 +2,7 @@ from mcnp_input_reader import MCNPCells, MCNPCell, MCNPSurfs, MCNPSurf, MCNPMate
 import re
 import multiprocessing
 import itertools
-from functools import partial
-from memory_profiler import profile
+
 # import time
 cell_pattern = re.compile(r'^\d')
 # surface_pattern = re.compile(r'^(\*)?\d+')
