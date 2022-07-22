@@ -2,15 +2,17 @@ from mcnp_input_reader import MCNPCells, MCNPCell, MCNPSurfs, MCNPSurf, MCNPMate
 import re
 import multiprocessing
 import itertools
-
+from mcnp_input_reader.util.lines import file_to_lines
+# from memory_profiler import profile
 # import time
 cell_pattern = re.compile(r'^\d')
-# surface_pattern = re.compile(r'^(\*)?\d+')
+surface_pattern = re.compile(r'^(\*)?\d+')
 transformation_pattern = re.compile(r'^(\*)?TR\d+', re.IGNORECASE)
 material_pattern = re.compile(r'^M\d+', re.IGNORECASE)
 # space_pattern = re.compile(r'^\s+')
 not_space_pattern = re.compile(r'^\S')
 material_transf_comment_pattern = re.compile(r"""^M\d+|^(\*)?TR|^C|^\s""", re.IGNORECASE)
+blank_line_pattern = re.compile(r"^\s*$")
 
 
 def get_line_numbers_of_data(lines):
@@ -66,7 +68,7 @@ class MCNPInput:
         universe_ids = filtered_cells.get_fill_ids()
         if deep:
             while len(universe_ids) > 0:
-                cells_of_universes = self.cells.filter(lambda cell: cell.universe_id in universe_ids )
+                cells_of_universes = self.cells.filter(lambda cell: cell.universe_id in universe_ids)
                 filtered_cells.union(cells_of_universes)
                 universe_ids = cells_of_universes.get_fill_ids()
 
@@ -115,89 +117,42 @@ The input contains:
 # of transformations: {}'''.format(self.title, len(self.cells), len(self.surfaces), len(self.materials), len(self.transformations))
 
 
-def generate_cell(cell_description, parent=None):
-    line_number = cell_description[0]
-    cell_string = cell_description[1]
-    return MCNPCell.from_string(cell_string, line_number, parent)
+def factory_of_cards(card_description, blank_line_indices):
+    '''
+    The factory produces the card according to the pattern and the
+    position in the MCNP input
 
-
-def generate_surface(surface_description):
-    line_number = surface_description[0]
-    surface_string = surface_description[1]
-    return MCNPSurf.from_string(surface_string, line_number)
-
-
-def generate_material(material_description):
-    line_number = material_description[0]
-    material_string = material_description[1]
-    return MCNPMaterial.from_string(material_string, line_number)
-
-
-def generate_transformation(transformation_description):
-    line_number = transformation_description[0]
-    transformation_string = transformation_description[1]
-    return MCNPTransformation.from_string(transformation_string, line_number)
+    :param card_description: tuple (line_number, card definition)
+    :param blank_line_indices: indices of the MCNP input blank lines
+    :return: card data structure
+    '''
+    line_number = card_description[0]
+    card_string = card_description[1]
+    if line_number < blank_line_indices[0]:
+        return MCNPCell.from_string(card_string, line_number)
+    elif line_number < blank_line_indices[1]:
+        if surface_pattern.match(card_string):
+            return MCNPSurf.from_string(card_string, line_number)
+    else:  # section data
+        if material_pattern.match(card_string):
+            return MCNPMaterial.from_string(card_string, line_number)
+        elif transformation_pattern.match(card_string):
+            return MCNPTransformation.from_string(card_string, line_number)
 
 
 # @profile
-def read_file(inputfile):
-
-    lines = []
-    cells_list = []
-    surfaces_list = []
-    materials_list = []
-    transformations_list = []
-    with open(inputfile, errors='ignore') as f:
-        section_id = 0
-        start_tr = 0
-        start_mat = 0
-        cell_id = 0
-        for n, line in enumerate(f):
-            lines.append(line)
-            if line == '\n' or line == '':
-                section_id += 1
-            if line.strip() == '':
-                continue
-            if section_id == 0:
-                if cell_pattern.match(line):
-                    cells_list.append([n, line])
-                elif cells_list:
-                    cells_list[-1][1] += line
-            elif section_id == 1:
-                if cell_pattern.match(line) or line[0] == '*':
-                    surfaces_list.append([n, line])
-                elif surfaces_list:
-                    surfaces_list[-1][1] += line
-            elif section_id == 2:
-                start_line_char = line.strip().upper()[0]
-                if transformation_pattern.match(line):
-                    start_tr = 1
-                    start_mat = 0
-                    transformations_list.append([n, line])
-                elif start_tr == 1 and start_line_char != 'M':
-                    transformations_list[-1][1] += line
-                elif material_pattern.match(line):
-                    start_tr = 0
-                    start_mat = 1
-                    materials_list.append([n, line])
-                elif start_line_char != 'C' and not_space_pattern.match(line):
-                    start_tr = 0
-                    start_mat = 0
-                elif start_mat == 1:
-                    materials_list[-1][1] += line
-            else:
-                break
+def read_file(filename):
+    lines = file_to_lines(filename)
+    line_indices = [index for index in range(len(lines)) if (lines[index][0] != ' ' and lines[index][0].upper() != 'C')]
+    blank_line_indices = [index for index in range(len(lines)) if blank_line_pattern.match(lines[index])]
+    cards_lines = ((line_indices[i], ''.join(lines[line_indices[i]:line_indices[i + 1]])) if i < len(line_indices) - 1 else (line_indices[i], ''.join(lines[line_indices[i]:-1])) for i in range(len(line_indices)))
 
     with multiprocessing.Pool() as p:
-        output_cells = p.map(generate_cell, cells_list)
-        # with multiprocessing.Pool() as p:
-        output_surfaces = p.map(generate_surface, surfaces_list)
-        output_materials = p.map(generate_material, materials_list)
-        output_transformations = p.map(generate_transformation, transformations_list)
+        output_cards = p.starmap(factory_of_cards, zip(cards_lines, itertools.repeat(blank_line_indices)))
 
-    cells = MCNPCells(output_cells)
-    surfaces = MCNPSurfs(output_surfaces)
-    materials = MCNPMaterials(output_materials)
-    transformations = MCNPTransformations(output_transformations)
+    cells = MCNPCells([card for card in output_cards if type(card).__name__ == 'MCNPCell'])
+    surfaces = MCNPSurfs([card for card in output_cards if type(card).__name__ == 'MCNPSurf'])
+    materials = MCNPMaterials([card for card in output_cards if type(card).__name__ == 'MCNPMaterial'])
+    transformations = MCNPTransformations([card for card in output_cards if type(card).__name__ == 'MCNPTransformation'])
 
     return MCNPInput(lines, cells, surfaces, materials, transformations)
