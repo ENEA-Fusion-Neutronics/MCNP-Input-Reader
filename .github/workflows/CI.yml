@@ -34,14 +34,14 @@ jobs:
         run: |
           poetry run python -m pytest tests/
   publish_pypi:
-      needs: ci
-      - if: github.event_name == 'push'
-        name: Publish
-        env:
-          PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-          PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        run: |
-          poetry publish --build --no-interaction -vv --username $PYPI_USERNAME --password $PYPI_PASSWORD
+    needs: ci
+    - if: github.event_name == 'push'
+      name: Publish
+      env:
+        PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
+      run: |
+        poetry publish --build --no-interaction -vv --username $PYPI_USERNAME --password $PYPI_PASSWORD
 #      - if: github.event_name == 'push'
 #        name: Generate release
 #        env:
