@@ -21,7 +21,7 @@ import mcnp_input_reader as mir
 
 mcnp_input = mir.read_file('input.i') 
 mcnp_input.cells # return the table of cells
-mcnp_input.cells.filter(lambda cell: cell.mat_id == 2) # return the cells using material M2
+mcnp_input.cells.filter(lambda cell: cell.material_id == 2) # return the cells using material M2
 ```
 ## TODO
 
