@@ -13,7 +13,6 @@ python = "^3.6.1"
 [tool.poetry.dev-dependencies]
 pytest = "*"
 flake8 = "^3.8.4"
-pandas = "^1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
