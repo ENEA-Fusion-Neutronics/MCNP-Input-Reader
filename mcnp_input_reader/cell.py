@@ -251,6 +251,10 @@ class MCNPCell(namedtuple('MCNPCell', ['id', 'parameters', 'start_line', 'end_li
         return get_value_from_list_of_tuples('LIKE', self.parameters, 0)
 
     @property
+    def density(self):
+        return get_value_from_list_of_tuples('RHO', self.parameters, 0.0)
+
+    @property
     def material_id(self):
         return get_value_from_list_of_tuples('MAT', self.parameters, 0)
 
