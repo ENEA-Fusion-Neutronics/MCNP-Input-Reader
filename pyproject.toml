@@ -13,8 +13,6 @@ python = "^3.6.1"
 [tool.poetry.dev-dependencies]
 pytest = "*"
 flake8 = "^3.8.4"
-jupyter = "^1.0.0"
-notebook = "^6.1.6"
 pandas = "^1"
 
 [build-system]
