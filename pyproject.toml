@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mcnp_input_reader"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCNP Input reader"
 authors = ["gmariano <giovanni.mariano@enea.it>"]
 readme = "README.md"

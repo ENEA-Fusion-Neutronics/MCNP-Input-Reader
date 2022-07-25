@@ -1,3 +1,3 @@
-id,material_id,fill_id
-1,1,1
-10,1,0
+id,material_id,density,fill_id
+1,1,-1.0,1
+10,1,-1.0,0

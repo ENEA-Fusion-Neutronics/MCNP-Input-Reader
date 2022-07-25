@@ -7,4 +7,4 @@ from .main import *
 from .store import *
 from .util import lines
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
