@@ -143,7 +143,7 @@ def factory_of_cards(card_description, blank_line_indices):
 # @profile
 def read_file(filename):
     lines = file_to_lines(filename)
-    line_indices = [index for index in range(len(lines)) if (lines[index][0] != ' ' and lines[index][0].upper() != 'C')]
+    line_indices = [index for index in range(1, len(lines)) if (lines[index][0] != ' ' and lines[index][0].upper() != 'C')]
     blank_line_indices = [index for index in range(len(lines)) if blank_line_pattern.match(lines[index])]
     cards_lines = ((line_indices[i], ''.join(lines[line_indices[i]:line_indices[i + 1]])) if i < len(line_indices) - 1 else (line_indices[i], ''.join(lines[line_indices[i]:-1])) for i in range(len(line_indices)))
 
